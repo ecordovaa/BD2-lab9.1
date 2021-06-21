@@ -1,0 +1,159 @@
+---
+title: "BD-L9"
+author: "Efraín Córdova, Paul Ríos"
+date: "22/06/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+```
+
+Primero, cargamos el dataset:
+
+```{r, message=FALSE}
+iris <- read_csv('iris.csv')
+```
+
+Definimos la función de distancia euclideanea:
+
+```{r}
+dist <- function(X, Y){
+  return(sqrt(sum((X - Y)^2)))
+}
+```
+
+Aleatoriamente, almacenamos la distancia de dos puntos aleatorios un total de N veces.
+
+```{r}
+genDistancias<-function(data, N){
+  v<-rep(0, N)
+  for (i in 1:N) {
+    ind<-sample(1:nrow(data), size=2)
+    p <- data[ind[1], ]
+    q <- data[ind[2], ]
+    v[i] <- dist(p, q)
+  }
+  return(v)
+}
+```
+
+Para este ejemplo, lo haremos 10000 veces:
+
+```{r}
+D<-genDistancias(iris[, 1:4], 10000)
+H<-hist(D, xlab = "Distancia", breaks = 10, main="Muestra de distancias")
+```
+
+Si graficamos los datos obtenidos tenemos el siguiente histograma:
+
+```{r}
+for (i in 1:(length(H$counts)-1)) {
+  print(paste("Radio <=" , H$breaks[i+1],": ", ... =     round(100*sum(H$counts[1:i])/sum(H$counts)), "%"))
+}
+```
+
+Tomaremos r1 = 2, r2 = 4 y r3 = 6. La precisión de los radios, calculada en base al histograma anterior, es:
+
+```{r}
+print(paste0("Radio de 2: PR = ", round(sum(H$counts[1:2])/sum(H$counts),2)))
+print(paste0("Radio de 4: PR = ", round(sum(H$counts[1:4])/sum(H$counts),2)))
+print(paste0("Radio de 6: PR = ", round(sum(H$counts[1:6])/sum(H$counts),2)))
+```
+
+## P1. Búsqueda por rango lineal.
+
+La función búqueda toma una consulta Q y un radio r. Devuelve un frame con las distancias y los indices de los valores de la colección cuya distancia es menor al radio.
+
+```{r}
+rangeSearch <- function(Q,r){
+  distances <- {}
+  index <- {}
+  for (i in 1:nrow(iris)){
+    distance = dist(Q,iris[i,1:4])
+    if(distance < r) {
+      distances <- c(distances, round(distance,3))
+      index <- c(index, i)
+    }
+  }
+  return(data.frame(distances, index))
+}
+```
+
+Correremos el algoritmo para los radios escogidos y los Q pedidos (Q15, Q82 y Q121). Los resultados de la consulta estan trivialmente ordenados por el indice:
+
+```{r}
+radios <- c(2,4,6)
+Query <- c(15,82,121)
+for (i in 1:3){
+  print(paste0("Rango = ", radios[i]))
+  for (q in 1:3){
+    print(paste0("Se busca coincidencias con el índice Q",q, " = ",Query[q]))
+    temp <- iris
+    val <- iris[Query[q],1:4]
+    iris <- iris[-c(Query[q]),]
+    results <- rangeSearch(val, radios[i])
+    print(paste0("Valores encontrados: (", nrow(results),")"))
+    for(v in 1:nrow(results)){
+      index <- results$index[v]
+      distance <- results$distances[v]
+      if(index >= Query[q]) {
+          index <- index + 1
+      }
+      print(paste0("    Indice: ", index))
+      print(paste0("    Distancia: ", distance))
+    }
+    iris <- temp
+  }
+}
+rm(temp)
+```
+
+## P2. Búsqueda de los k elementos más cercanos.
+
+Dada una tupla de consulta Q y un número de vecinos para la búsqueda:
+
+```{r}
+KnnSearch <- function(Q,k){
+  distances <- {}
+  index <- {}
+  for (i in 1:nrow(iris)){
+    index <- c(index, i)
+    distances <- c(distances, dist(iris[i,1:4], Q))
+  }
+  result <- data.frame(index,distances)
+  result <- result[order(result$distances),]
+  return(result[1:k,])
+}
+```
+
+Y ejecutamos con los valores del cuadro:
+
+```{r}
+K <- c(2,4,8,16,32)
+for(q in 1:3){
+  print(paste0("Se busca coincidencias con el índice Q",q, " = ",Query[q]))
+  for(k in 1:5){
+    print(paste0("Número de vecinos a encontrar: ",K[k]))
+    temp <- iris
+    val <- iris[Query[q],1:4]
+    iris <- iris[-c(Query[q]),]
+    results <- KnnSearch(val, K[k])
+    print("Valores encontrados:")
+    for(v in 1:nrow(results)){
+      index <- results$index[v]
+      distance <- results$distances[v]
+      if(index >= Query[q]) {
+          index <- index + 1
+      }
+      print(paste0("    Indice: ", index))
+      print(paste0("    Distancia: ", distance))
+    }
+    iris <- temp
+  }
+}
+```
